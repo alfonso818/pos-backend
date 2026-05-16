@@ -50,7 +50,7 @@ app.post("/login", async (req, res) => {
 
   const user = result.rows[0];
 
-  const valid = await bcrypt.compare(password, user.password);
+  const valid = password === user.password;
 
   if (!valid) {
     return res.status(401).json({ message: "Password salah" });
