@@ -64,6 +64,7 @@ app.post("/login", async (req, res) => {
     user: {
       id: user.id,
       username: user.username,
+      password : user.password,
       role: user.role
     }
   });
