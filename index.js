@@ -70,6 +70,11 @@ app.post("/login", async (req, res) => {
   }
 });
 
+// ================= ROOT ROUTE =================
+app.get("/", (req, res) => {
+  res.send("POS Backend Running");
+});
+
 // ================= MIDDLEWARE JWT =================
 function auth(req, res, next) {
   const header = req.headers.authorization;
