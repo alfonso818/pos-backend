@@ -3,6 +3,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { Pool } = require("pg");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 dotenv.config();
 
@@ -22,6 +23,17 @@ app.get("/", (req, res) => {
   res.send("POS Backend Running");
 });
 
+function generateToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      role: user.role
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1d" }
+  );
+}
 
 // LOGIN
 app.post("/login", async (req, res) => {
@@ -33,9 +45,7 @@ app.post("/login", async (req, res) => {
   );
 
   if (result.rows.length === 0) {
-    return res.status(401).json({
-      message: "User tidak ditemukan"
-    });
+    return res.status(401).json({ message: "User tidak ditemukan" });
   }
 
   const user = result.rows[0];
@@ -43,15 +53,56 @@ app.post("/login", async (req, res) => {
   const valid = await bcrypt.compare(password, user.password);
 
   if (!valid) {
-    return res.status(401).json({
-      message: "Password salah"
-    });
+    return res.status(401).json({ message: "Password salah" });
   }
+
+  const token = generateToken(user);
 
   res.json({
     message: "Login berhasil",
-    user
+    token,
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role
+    }
   });
+});
+
+// MIDDLEWARE AUTH
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ message: "Token tidak ada" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: "Token tidak valid" });
+  }
+}
+
+// ROLE CHECK (SUPER ADMIN ONLY)
+function superAdminOnly(req, res, next) {
+  if (req.user.role !== "super_admin") {
+    return res.status(403).json({ message: "Akses ditolak" });
+  }
+  next();
+}
+
+// PROTEKSI ROUTE
+app.get("/products", authMiddleware, async (req, res) => {
+  const result = await pool.query(
+    "SELECT * FROM products ORDER BY created_at DESC"
+  );
+
+  res.json(result.rows);
 });
 
 
